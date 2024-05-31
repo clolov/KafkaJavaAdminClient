@@ -3,34 +3,49 @@ import org.apache.kafka.clients.admin.KafkaAdminClient;
 import org.apache.kafka.clients.admin.NewTopic;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 
 public class SimpleAdminClient {
 
     public static void main(String[] args) throws ExecutionException, InterruptedException {
         Properties props = new Properties();
+        props.put("bootstrap.servers", "");
         AdminClient admin = KafkaAdminClient.create(props);
 
-        NewTopic topic = new NewTopic("batman", 1, (short) 1);
+        int iterations = 100;
 
-        System.err.println("Creating the topic");
-        admin.createTopics(Collections.singletonList(topic)).all().get();
+        Map<Integer, Integer> histogram = new HashMap<>();
 
-        System.err.println("Trying to list the topic");
-        int counter = 0;
-        while (true) {
-            if (!admin.listTopics().names().get().contains(topic.name())) {
-                System.err.println("Could not find topic after " + counter * 50 + " ms");
-                counter++;
-                Thread.sleep(50);
-            } else {
-                System.err.println("Found the topic");
-                break;
+        while (iterations > 0) {
+
+            String uuid = UUID.randomUUID().toString();
+
+            NewTopic topic = new NewTopic(uuid, 1, (short) 1);
+
+            admin.createTopics(Collections.singletonList(topic)).all().get();
+
+            int counter = 0;
+
+            while (true) {
+                if (!admin.listTopics().names().get().contains(topic.name())) {
+                    counter++;
+                    Thread.sleep(50);
+                } else {
+                    break;
+                }
             }
+
+            Integer prev = histogram.getOrDefault(counter * 50, 0);
+            histogram.put(counter * 50, prev + 1);
+
+            iterations--;
         }
 
-        System.err.println("Completed");
+        System.err.println(histogram);
     }
 
 }
